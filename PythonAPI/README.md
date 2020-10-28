@@ -62,6 +62,7 @@ Unreal Engine에서 Play를 누르고 manual_control.py를 실행시킵니다.
 |----|----|
 |**wasd**|앞뒤좌우로 움직임|
 |**r**|사진, angle record 시작, 멈춤|
+|**v**|record된 파일 영구 저장|
 |**p**|autopilot 시작, 멈춤|
 |**~**|센서 변경|
 |**c**|날씨 변경|
