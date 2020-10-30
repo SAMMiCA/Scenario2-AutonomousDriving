@@ -1,0 +1,26 @@
+Install Unreal Engine
+
+ git clone -b dev --single-branch https://github.com/carla-simulator/carla.git
+ cd carla
+ ./Update.sh
+
+
+make LibCarla.client.rss --> failed (need colcon)
+
+https://colcon.readthedocs.io/en/released/user/installation.html#using-pip-on-any-platform
+
+Using pip <- failed
+
+
+ROS1 Repo Download
+sudo apt update
+sudo apt install python3-colcon-common-extensions <- Success!!
+
+
+make LibCarla.client.rss
+
+
+gedit ~/.bashrc
+export UE4_ROOT=~/UnrealEngine_4.24    <<<add this line to ~/.bashrc and save
+
+make package.rss ARGS="--python-version=3.6"
