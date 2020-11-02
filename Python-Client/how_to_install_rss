@@ -1,26 +1,61 @@
-Install Unreal Engine
+sudo apt-get update &&
+sudo apt-get install wget software-properties-common &&
+sudo add-apt-repository ppa:ubuntu-toolchain-r/test &&
+wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key|sudo apt-key add - &&
+sudo apt-add-repository "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main" &&
+sudo apt-get update
 
- git clone -b dev --single-branch https://github.com/carla-simulator/carla.git
- cd carla
- ./Update.sh
+sudo apt-get install build-essential clang-8 lld-8 g++-7 cmake ninja-build libvulkan1 python python-pip python-dev python3-dev python3-pip libpng-dev libtiff5-dev libjpeg-dev tzdata sed curl unzip autoconf libtool rsync libxml2-dev &&
+pip2 install --user setuptools &&
+pip3 install --user -Iv setuptools==47.3.1 &&
+pip2 install --user distro &&
+pip3 install --user distro
+
+sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/lib/llvm-8/bin/clang++ 180 &&
+sudo update-alternatives --install /usr/bin/clang clang /usr/lib/llvm-8/bin/clang 180
+
+sudo apt install git
+git clone --depth=1 -b 4.24 https://github.com/EpicGames/UnrealEngine.git ~/UnrealEngine_4.24
+
+cd ~/UnrealEngine_4.24
+wget https://carla-releases.s3.eu-west-3.amazonaws.com/Linux/UE_Patch/430667-13636743-patch.txt 430667-13636743-patch.txt
+patch --strip=4 < 430667-13636743-patch.txt
+
+./Setup.sh && ./GenerateProjectFiles.sh && make
+
+cd ~/UnrealEngine_4.24/Engine/Binaries/Linux && ./UE4Editor
+
+sudo apt-get install aria2
+git clone -b dev --single-branch https://github.com/carla-simulator/carla.git
+cd carla
+./Update.sh
 
 
-make LibCarla.client.rss --> failed (need colcon)
+sudo apt-get install libgtest-dev libpython-dev libpugixml-dev libtbb-dev
+pip3 install --user -U colcon-common-extensions
+sudo apt-get install castxml
+pip3 install --user pygccxml pyplusplus
 
-https://colcon.readthedocs.io/en/released/user/installation.html#using-pip-on-any-platform
 
-Using pip <- failed
+sudo apt-get install libboost-all-dev libpugixml-dev libgtest-dev libpython-dev
+
+pip install --user pygccxml pyplusplus xmlrunner
 
 
-ROS1 Repo Download
+sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu `lsb_release -cs` main" > /etc/apt/sources.list.d/ros-latest.list'
+sudo apt-key adv --keyserver 'hkp://keyserver.ubuntu.com:80' --recv-key C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654
 sudo apt update
-sudo apt install python3-colcon-common-extensions <- Success!!
+sudo apt install python3-colcon-common-extensions
 
 
 make LibCarla.client.rss
 
-
 gedit ~/.bashrc
-export UE4_ROOT=~/UnrealEngine_4.24    <<<add this line to ~/.bashrc and save
 
-make package.rss ARGS="--python-version=3.6"
+(export UE4_ROOT=~/UnrealEngine_4.24)     <<<add this line to ~/.bashrc and save
+
+source ~/.bashrc
+
+make PythonAPI.rss ARGS="--python-version=3.6"
+
+make launch
