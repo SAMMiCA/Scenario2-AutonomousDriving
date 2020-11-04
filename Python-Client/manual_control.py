@@ -24,9 +24,12 @@
 # throttle 속도 상향
 #====================================Ver 201028======================================#
 # IP주소 오류 고침
-# V 누르면, 현재 시간으로 steering angle, segmentation, rgb 파일 백업
+# V 누르면, 현재 시각으로 steering angle, segmentation, rgb 파일 백업
 # R 누를 때마다 steering angle, segmentation, rgb 파일 삭제
+#====================================Ver 201104======================================#
+# save 과정에 RGB/SEG synchronizing 기능 추가
 #====================================================================================#
+
 """
 Welcome to CARLA manual control.
 
@@ -107,6 +110,7 @@ import weakref
 import cv2
 import shutil
 import time
+from os.path import isfile, join
 
 try:
     import pygame
@@ -384,6 +388,14 @@ class KeyboardControl(object):
                         world.hud.notification("Enabled Constant Velocity Mode at 60 km/h")
 
                 elif event.key == K_v:
+
+                    path_rgb= './rgb'
+                    path_seg= './seg'
+                    files1 = [f for f in os.listdir(path_seg) if os.path.isfile(join(path_seg, f))]
+                    for i in range(len(files1)):
+                        if os.path.isfile (path_rgb+'/'+str(files1[i])) == False:
+                            os.remove(path_seg+'/'+str(files1[i]))
+
                     timenow = time.strftime('%y-%m-%d_%H:%M:%S', time.localtime(time.time()))
                     if os.path.isdir("./rgb"):
                         os.rename("./rgb", "./"+str(timenow)+"_rgb")
