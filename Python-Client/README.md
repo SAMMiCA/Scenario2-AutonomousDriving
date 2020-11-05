@@ -21,7 +21,7 @@
 
 **VidMaker.py:** rgb, seg 디렉토리에 있는 사진 파일들을 비디오로 만들어줍니다.
 
-**Synchronizer.py** 가끔 rgb 파일이 프레임을 건너 뛸 때, 남는 seg 파일을 지워줍니다.
+**Synchronizer.py:** 가끔 rgb 파일이 프레임을 건너 뛸 때, 남는 seg 파일을 지워줍니다. manual_control에 포함되어 있어 사용하실 일이 없습니다.
 
 ## 2. agents
 
