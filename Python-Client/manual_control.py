@@ -28,7 +28,12 @@
 # R 누를 때마다 steering angle, segmentation, rgb 파일 삭제
 #====================================Ver 201104======================================#
 # save 과정에 RGB/SEG synchronizing 기능 추가
+#====================================Ver 201110======================================#
+# synchronizing 보완!
+#====================================Ver 201113======================================#
+# LiDAR Sensor, Semantic LiDAR Sensor 추가
 #====================================================================================#
+
 
 """
 Welcome to CARLA manual control.
@@ -266,6 +271,15 @@ class World(object):
         self.semantic_manager.transform_index = cam_pos_index
         self.semantic_manager.set_sensor(cam_index, notify=False)    
 
+        self.LiDAR_manager = LiDAR(self.player, self.hud, False)
+        self.LiDAR_manager.transform_index = cam_pos_index-1
+        self.LiDAR_manager.set_sensor(cam_index, notify=False)
+
+        self.Semantic_LiDAR_manager = LiDAR(self.player, self.hud, False)
+        self.Semantic_LiDAR_manager.transform_index = cam_pos_index-1
+        self.Semantic_LiDAR_manager.set_sensor(cam_index, notify=False)
+        self.Semantic_LiDAR_manager.next_sensor()
+
         actor_type = get_actor_display_name(self.player)
         self.hud.notification(actor_type)
 
@@ -306,6 +320,12 @@ class World(object):
         self.semantic_manager.sensor.destroy()
         self.semantic_manager.sensor = None
         self.semantic_manager.index = None
+        self.LiDAR_manager.sensor.destroy()
+        self.LiDAR_manager.sensor = None
+        self.LiDAR_manager.index = None
+        self.Semantic_LiDAR_manager.sensor.destroy()
+        self.Semantic_LiDAR_manager.sensor = None
+        self.Semantic_LiDAR_manager.index = None
 
     def destroy(self):
         if self.radar_sensor is not None:
@@ -388,9 +408,11 @@ class KeyboardControl(object):
                         world.hud.notification("Enabled Constant Velocity Mode at 60 km/h")
 
                 elif event.key == K_v:
-
+                    
                     path_rgb= './rgb'
                     path_seg= './seg'
+                    path_lid= './LiDAR'
+                    path_semlid ='./Semantic_LiDAR'
                     files1 = [f for f in os.listdir(path_seg) if os.path.isfile(join(path_seg, f))]
                     for i in range(len(files1)):
                         if os.path.isfile (path_rgb+'/'+str(files1[i])) == False:
@@ -403,11 +425,17 @@ class KeyboardControl(object):
                         os.rename("./seg", "./"+str(timenow)+"_seg")
                     if os.path.isfile("steer_angle_log.txt"):
                         os.rename("steer_angle_log.txt", str(timenow)+"_steer_angle_log.txt")
+                    if os.path.isdir("./LiDAR"):
+                        os.rename("./LiDAR", "./"+str(timenow)+"_LiDAR")
+                    if os.path.isdir("./Semantic_LiDAR"):
+                        os.rename("./Semantic_LiDAR", "./"+str(timenow)+"_Semantic_LiDAR")
                 elif event.key > K_0 and event.key <= K_9:
                     world.camera_manager.set_sensor(event.key - 1 - K_0)
                 elif event.key == K_r:
                     world.camera_manager.toggle_recording()
                     world.semantic_manager.toggle_recording()
+                    world.LiDAR_manager.toggle_recording()
+                    world.Semantic_LiDAR_manager.toggle_recording()
                 elif event.key == K_p and (pygame.key.get_mods() & KMOD_CTRL):
                     # stop recorder
                     client.stop_recorder()
@@ -1078,7 +1106,7 @@ class Camera(object):
             #Steer Record
             f = open("steer_angle_log.txt", 'a') #밖으로 꺼내서 최적화 가능하나, 성능에 큰 영향 X
             c = self._parent.get_control()
-            f.write(str(self.hud.frame)+'png '+str(c.steer*100)+"\n") #c.steer range: [-0.7,0.7]
+            f.write(str(image.frame)+'png '+str(c.steer*100)+"\n") #c.steer range: [-0.7,0.7]
             f.close()
 
 # ==============================================================================
@@ -1149,6 +1177,80 @@ class Semantic_Camera(object):
             array = array[:, :, :3]
             array = array[:, :, ::-1]
             cv2.imwrite('./seg/'+str(image.frame)+'.png',array)
+
+# ==============================================================================
+# -- LiDAR Manager -------------------------------------------------------------
+# Visualizer 삭제해서 연산량 줄임
+# ==============================================================================
+class LiDAR(object):
+    def __init__(self, parent_actor, hud, gamma_correction):
+        self.sensor = None
+        self.surface = None
+        self._parent = parent_actor
+        self.hud = hud
+        self.recording = False
+        bound_y = 0.5 + self._parent.bounding_box.extent.y
+        Attachment = carla.AttachmentType
+        self._camera_transforms = [
+            (carla.Transform(carla.Location(x=0, z=10), carla.Rotation(pitch=0)), Attachment.Rigid),
+        ]
+        self.transform_index = 0
+        self.sensors = [
+            ['sensor.lidar.ray_cast', None, 'Lidar (Ray-Cast)', {'range': '50'}],
+            ['sensor.lidar.ray_cast_semantic', None, 'Semantic-Lidar (Ray-Cast)', {'range': '50'}]
+        ]
+        world = self._parent.get_world()
+        bp_library = world.get_blueprint_library()
+        for item in self.sensors:
+            bp = bp_library.find(item[0])
+            self.lidar_range = 50
+            for attr_name, attr_value in item[3].items():
+                bp.set_attribute(attr_name, attr_value)
+                if attr_name == 'range':
+                    self.lidar_range = float(attr_value)
+            item.append(bp)
+        self.index = None
+
+
+    def set_sensor(self, index, notify=True, force_respawn=False):
+        index = index % len(self.sensors)
+        needs_respawn = True if self.index is None else \
+            (force_respawn or (self.sensors[index][2] != self.sensors[self.index][2]))
+        if needs_respawn:
+            if self.sensor is not None:
+                self.sensor.destroy()
+                self.surface = None
+            self.sensor = self._parent.get_world().spawn_actor(
+                self.sensors[index][-1],
+                self._camera_transforms[self.transform_index][0],
+                attach_to=self._parent,
+                attachment_type=self._camera_transforms[self.transform_index][1])
+            # We need to pass the lambda a weak reference to self to avoid
+            # circular reference.
+            weak_self = weakref.ref(self)
+            self.sensor.listen(lambda image: LiDAR._parse_image(weak_self, image))
+        if notify:
+            self.hud.notification(self.sensors[index][2])
+        self.index = index
+
+    def next_sensor(self):
+        self.set_sensor(self.index + 1)
+
+    def toggle_recording(self):
+        self.recording = not self.recording
+
+    def render(self, display):
+        if self.surface is not None:
+            display.blit(self.surface, (0, 0))
+
+    @staticmethod
+    def _parse_image(weak_self, image):
+        self = weak_self()
+        if self.recording:
+            if self.index  % len(self.sensors) == 0:
+                image.save_to_disk('LiDAR/%d' % image.frame)
+            else:
+                image.save_to_disk('Semantic_LiDAR/%d' % image.frame)
 
 # ==============================================================================
 # -- game_loop() ---------------------------------------------------------------
