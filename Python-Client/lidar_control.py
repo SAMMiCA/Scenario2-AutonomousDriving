@@ -33,6 +33,15 @@
 #====================================Ver 201113======================================#
 # LiDAR Sensor, Semantic LiDAR Sensor 추가
 # LiDAR Sensor 기반 distance calculator 추가
+# LiDAR와 Camera의 frame number 차이 존재 >> 해결 필요
+#====================================Ver 201114======================================#
+# LiDAR Sensor 기반 상대 속도 측정치를 바탕으로 회피 기능 추가
+# 방향 선택 제약 조건 추가할 필요 있음 / ex) 중앙선
+# 현재는 왼쪽 체크 후 오른쪽 체크, 양쪽 다 불가능 하면 멈춤 / 측면에 장애물 인식을 잘 못하는 경우 존재
+#====================================Ver 201116======================================#
+# L 버튼 누르면 LiDAR Controll on/off 가능
+# 후진 버그 제거
+# Segmentation Fault 자주 나타남.
 #====================================================================================#
 
 
@@ -211,6 +220,8 @@ class World(object):
         self.radar_sensor = None
         self.camera_manager = None
         self.semantic_manager = None
+        self.LiDAR_manager = None
+        self.Semantic_LiDAR_manager = None
         self._weather_presets = find_weather_presets()
         self._weather_index = 0
         self._actor_filter = args.filter
@@ -274,11 +285,11 @@ class World(object):
         self.semantic_manager.transform_index = cam_pos_index
         self.semantic_manager.set_sensor(cam_index, notify=False)    
 
-        self.LiDAR_manager = LiDAR(self.player, self.hud, False)
+        self.LiDAR_manager = LiDAR(self.player, self.hud, False, self.imu_sensor)
         self.LiDAR_manager.transform_index = cam_pos_index-1
         self.LiDAR_manager.set_sensor(cam_index, notify=False)
 
-        self.Semantic_LiDAR_manager = LiDAR(self.player, self.hud, False)
+        self.Semantic_LiDAR_manager = LiDAR(self.player, self.hud, False, self.imu_sensor)
         self.Semantic_LiDAR_manager.transform_index = cam_pos_index-1
         self.Semantic_LiDAR_manager.set_sensor(cam_index, notify=False)
         self.Semantic_LiDAR_manager.next_sensor()
@@ -356,6 +367,7 @@ class KeyboardControl(object):
     """Class that handles keyboard input."""
     def __init__(self, world, start_in_autopilot):
         self._autopilot_enabled = start_in_autopilot
+        self.lidar_controller = world.LiDAR_manager.lidar_controller
         if isinstance(world.player, carla.Vehicle):
             self._control = carla.VehicleControl()
             self._lights = carla.VehicleLightState.NONE
@@ -482,56 +494,146 @@ class KeyboardControl(object):
                         world.player.set_autopilot(self._autopilot_enabled)
                         world.hud.notification(
                             'Autopilot %s' % ('On' if self._autopilot_enabled else 'Off'))
-                    elif event.key == K_l and pygame.key.get_mods() & KMOD_CTRL:
-                        current_lights ^= carla.VehicleLightState.Special1
-                    elif event.key == K_l and pygame.key.get_mods() & KMOD_SHIFT:
-                        current_lights ^= carla.VehicleLightState.HighBeam
                     elif event.key == K_l:
-                        # Use 'L' key to switch between lights:
-                        # closed -> position -> low beam -> fog
-                        if not self._lights & carla.VehicleLightState.Position:
-                            world.hud.notification("Position lights")
-                            current_lights |= carla.VehicleLightState.Position
+                        world.LiDAR_manager._lidar_control_enable = not world.LiDAR_manager._lidar_control_enable
+                        world.LiDAR_manager.lidar_controller = False
+                        if world.LiDAR_manager._lidar_control_enable == False:
+                            world.hud.notification("Disabled LiDAR Controller")
                         else:
-                            world.hud.notification("Low beam lights")
-                            current_lights |= carla.VehicleLightState.LowBeam
-                        if self._lights & carla.VehicleLightState.LowBeam:
-                            world.hud.notification("Fog lights")
-                            current_lights |= carla.VehicleLightState.Fog
-                        if self._lights & carla.VehicleLightState.Fog:
-                            world.hud.notification("Lights off")
-                            current_lights ^= carla.VehicleLightState.Position
-                            current_lights ^= carla.VehicleLightState.LowBeam
-                            current_lights ^= carla.VehicleLightState.Fog
+                            world.hud.notification("Enabled LiDAR Controller")
                     elif event.key == K_i:
                         current_lights ^= carla.VehicleLightState.Interior
                     elif event.key == K_z:
                         current_lights ^= carla.VehicleLightState.LeftBlinker
                     elif event.key == K_x:
                         current_lights ^= carla.VehicleLightState.RightBlinker
+#####################################Control with LiDAR!!#########################################
+        
+        
+        self.lidar_controller = world.LiDAR_manager.lidar_controller
 
         if not self._autopilot_enabled:
-            if isinstance(self._control, carla.VehicleControl):
-                self._parse_vehicle_keys(pygame.key.get_pressed(), clock.get_time())
-                self._control.reverse = self._control.gear < 0
-                # Set automatic control-related vehicle lights
-                if self._control.brake:
-                    current_lights |= carla.VehicleLightState.Brake
-                else: # Remove the Brake flag
-                    current_lights &= ~carla.VehicleLightState.Brake
-                if self._control.reverse:
-                    current_lights |= carla.VehicleLightState.Reverse
-                else: # Remove the Reverse flag
-                    current_lights &= ~carla.VehicleLightState.Reverse
-                if current_lights != self._lights: # Change the light state only if necessary
-                    self._lights = current_lights
-                    world.player.set_light_state(carla.VehicleLightState(self._lights))
-            elif isinstance(self._control, carla.WalkerControl):
-                self._parse_walker_keys(pygame.key.get_pressed(), clock.get_time(), world)
-            world.player.apply_control(self._control)
+            if self.lidar_controller == False:
+                if isinstance(self._control, carla.VehicleControl):
+                    self._parse_vehicle_keys(pygame.key.get_pressed(), clock.get_time())
+                    self._control.reverse = self._control.gear < 0
+                    # Set automatic control-related vehicle lights
+                    if self._control.brake:
+                        current_lights |= carla.VehicleLightState.Brake
+                    else: # Remove the Brake flag
+                        current_lights &= ~carla.VehicleLightState.Brake
+                    if self._control.reverse:
+                        current_lights |= carla.VehicleLightState.Reverse
+                    else: # Remove the Reverse flag
+                        current_lights &= ~carla.VehicleLightState.Reverse
+                    if current_lights != self._lights: # Change the light state only if necessary
+                        self._lights = current_lights
+                        world.player.set_light_state(carla.VehicleLightState(self._lights))
+                elif isinstance(self._control, carla.WalkerControl):
+                    self._parse_walker_keys(pygame.key.get_pressed(), clock.get_time(), world)
+                world.player.apply_control(self._control)
+        
+        if self.lidar_controller is not False:
+            
+            if self.lidar_controller == 'Stop':
+                if self._autopilot_enabled is True:
+                    self._autopilot_enabled = not self._autopilot_enabled
+                    world.player.set_autopilot(self._autopilot_enabled)
+                self._control.gear = 1
+                self._control.throttle = 0
+                self._control.brake = 1
+                world.LiDAR_manager.lidar_controller = -1
+                world.player.apply_control(self._control)
+                print("Front is Blocked!")
 
+            if self.lidar_controller == 'Left':
+                if self._autopilot_enabled is True:
+                    self._autopilot_enabled = not self._autopilot_enabled
+                    world.player.set_autopilot(self._autopilot_enabled)
+                print("Turning Left!")
+                prev_location_x = world.LiDAR_manager.location_x
+                prev_location_y = world.LiDAR_manager.location_y
+                prev_degree = world.LiDAR_manager.degree
+
+                location_x = world.player.get_transform().location.x
+                location_y = world.player.get_transform().location.y
+                degree = world.imu_sensor.compass
+
+                relative_location_x = location_x - prev_location_x
+                relative_location_y = location_y - prev_location_y
+
+                perpendicular_distance = abs(relative_location_x*math.cos(prev_degree*math.pi/180)+relative_location_y*math.sin(prev_degree*math.pi/180))
+                print("Perpendicular_distance: "+str(perpendicular_distance))
+
+                if perpendicular_distance < 1.5:
+                    self._control.throttle = 0.5
+                    self._control.brake = 0
+                    self._control.steer = -0.1
+                    world.player.apply_control(self._control)
+                    print("Turning Left!")
+                else:
+                    if abs(degree-prev_degree)>10:
+                        self._control.throttle = 0.5
+                        self._control.brake = 0
+                        self._control.steer = 0.1
+                        world.player.apply_control(self._control)
+                        print("Recovering!!! \ncurrent degree: " +str(degree) + "\n traget degree: " + str(prev_degree))
+                    else:
+                        print("Recovering Ended!")
+                        world.LiDAR_manager.lidar_controller = False
+                        self._autopilot_enabled = not self._autopilot_enabled
+                        world.player.set_autopilot(self._autopilot_enabled)
+                # self._control.throttle = 0
+                # self._control.brake = 1
+                # world.player.apply_control(self._control)
+
+            if self.lidar_controller == 'Right':
+                if self._autopilot_enabled is True:
+                    self._autopilot_enabled = not self._autopilot_enabled
+                    world.player.set_autopilot(self._autopilot_enabled)
+                print("Turning Right!")
+                prev_location_x = world.LiDAR_manager.location_x
+                prev_location_y = world.LiDAR_manager.location_y
+                prev_degree = world.LiDAR_manager.degree
+
+                location_x = world.player.get_transform().location.x
+                location_y = world.player.get_transform().location.y
+                degree = world.imu_sensor.compass
+
+                relative_location_x = location_x - prev_location_x
+                relative_location_y = location_y - prev_location_y
+
+                perpendicular_distance = abs(relative_location_x*math.cos(prev_degree*math.pi/180)+relative_location_y*math.sin(prev_degree*math.pi/180))
+                print("Perpendicular_distance: "+str(perpendicular_distance))
+
+                if perpendicular_distance < 1.5:
+                    self._control.throttle = 0.5
+                    self._control.brake = 0
+                    self._control.steer = 0.1
+                    print("Turning Right!")
+                    world.player.apply_control(self._control)
+                else:
+                    if abs(degree-prev_degree)>10:
+                        self._control.throttle = 0.5
+                        self._control.brake = 0
+                        self._control.steer = -0.1
+                        print("Recovering!!! current degree: " +str(degree) +  str(prev_degree))
+                        world.player.apply_control(self._control)
+                    else:
+                        world.LiDAR_manager.lidar_controller = False
+                        print("Recovering Ended!")
+                        self._autopilot_enabled = not self._autopilot_enabled
+                        world.player.set_autopilot(self._autopilot_enabled)
+                # self._control.throttle = 0
+                # self._control.brake = 1
+                # world.player.apply_control(self._control)
+
+
+
+#####################################################################################################
     def _parse_vehicle_keys(self, keys, milliseconds):
         self._control.throttle=0
+        self._control.brake = 0
         if keys[K_UP] or keys[K_w]:
             self._control.gear = 1
             self._control.throttle = 1
@@ -1186,12 +1288,14 @@ class Semantic_Camera(object):
 # Visualizer 삭제해서 연산량 줄임
 # ==============================================================================
 class LiDAR(object):
-    def __init__(self, parent_actor, hud, gamma_correction):
+    def __init__(self, parent_actor, hud, gamma_correction, imu_sensor):
         self.sensor = None
         self.surface = None
         self._parent = parent_actor
         self.hud = hud
         self.recording = False
+        self.lidar_controller = False
+        self.imu_sensor = imu_sensor
         bound_y = 0.5 + self._parent.bounding_box.extent.y
         Attachment = carla.AttachmentType
         self._camera_transforms = [
@@ -1213,6 +1317,14 @@ class LiDAR(object):
                     self.lidar_range = float(attr_value)
             item.append(bp)
         self.index = None
+
+        self._lidar_control_enable = False
+        self.previous_distance = 0
+        self.distance = False
+
+        self.location_x = 0
+        self.location_y = 0
+        self.degree = 0
 
 
     def set_sensor(self, index, notify=True, force_respawn=False):
@@ -1249,9 +1361,44 @@ class LiDAR(object):
     @staticmethod
     def _parse_image(weak_self, image):
         self = weak_self()
-        if self.index  % len(self.sensors) == 0:
-            LiDAR_add_on.calculate_distance_LiDAR(image.raw_data)
 
+        ##############################LIDAR_AUTOPILOT!##################################
+        if self._lidar_control_enable == True:
+
+            if self.index  % len(self.sensors) == 0:
+                if self.lidar_controller == False:
+                    self.distance = LiDAR_add_on.calculate_distance_LiDAR(image.raw_data)
+                
+                if self.distance is not False:
+                    if self.lidar_controller == False:
+                        if self.distance < self.previous_distance - 0.15:
+                            self.hud._notifications.set_text("Obstacle is getting closer!", seconds=0.5)
+                            where_to_go = LiDAR_add_on.LiDAR_safety_check(image.raw_data)
+                            if where_to_go == 0:
+                                self.lidar_controller = 'Stop'
+                                self.hud.notification("Blocked by Obstacle")
+                            if where_to_go == 1:
+                                self.lidar_controller = 'Left'
+                                self.location_x = self._parent.get_transform().location.x
+                                self.location_y = self._parent.get_transform().location.y
+                                self.degree = self.imu_sensor.compass
+                                self.hud.notification("Turning Left")
+                                
+                            if where_to_go == 2:
+                                self.lidar_controller = 'Right'
+                                self.location_x = self._parent.get_transform().location.x
+                                self.location_y = self._parent.get_transform().location.y
+                                self.degree = self.imu_sensor.compass
+                                self.hud.notification("Turning Right")
+                        else:
+                            self.lidar_controller = False
+                        self.previous_distance = self.distance
+                    else:
+                        pass
+                else:
+                    self.lidar_controller = False
+        
+        ################################################################################
         if self.recording:
             if self.index  % len(self.sensors) == 0:
                 image.save_to_disk('LiDAR/%d' % image.frame)

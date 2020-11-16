@@ -260,7 +260,7 @@ class BasicSynchronousClient(object):
 			while True:
 				self.world.tick()
 				self.capture = True
-				pygame_clock.tick(15)
+				pygame_clock.tick(60)
 				self.render(self.display)
 				pygame.display.flip()
 				pygame.event.pump()
