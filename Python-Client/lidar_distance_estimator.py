@@ -13,7 +13,6 @@ def image_loader(file_name):
     raw_data = open(file_name, 'r')
     sliced_data = raw_data.readlines()[8:]
     point_cloud = np.loadtxt(sliced_data)
-    print(point_cloud[0,0])
     return point_cloud
 
 #====================================================================================#
@@ -54,7 +53,30 @@ def obstacle_detector(compressed_points):
     else:
         return 0
 
+#====================================================================================#
+# distance_calculator(ply_file)
+# 위의 함수 묶어서 distance 반환
+#====================================================================================#
+def distance_calculator(ply_file):
+    distance = obstacle_detector(point_compressor(image_loader(str(ply_file))))
+    return distance
 
+#====================================================================================#
+# velocity_calculator(previous_distance, current_distance)
+# 전후 프레임 비교해서 velocity 반환
+# 기본 LiDAR fps = 10
+# 가까워지는 경우 음수 반환 / 멀어지는 경우 양수 반환
+# Object가 없을 경우 False 반환
+#====================================================================================#
+def velocity_calculator(previous_distance, current_distance):
+    fps = 10
+    if current_distance > 0 and previous_distance > 0: #장애물 없을때 distance = 0 계산X
+        velocity_sec = (current_distance - previous_distance)*fps # m/s
+        velocity_hr = velocity_sec*3.6 #km/hr
+    else:
+        velocity_sec = False
+        velocity_hr = False
+    return velocity_hr
 #====================================================================================#
 # main
 # 디렉토리 내 모든 ply파일에 대해 실행
@@ -63,11 +85,16 @@ def obstacle_detector(compressed_points):
 def main():
     files = [f for f in os.listdir('.') if isfile(join('.', f))]
     files.sort(key = str.lower)
-    files = files[0:len(files)-1]
+    files = files[0:len(files)-2]
+    previous_distance = 0
     for i in range(len(files)):
         filename = files[i]
-        print(str(filename) +' '+ str(obstacle_detector(point_compressor(image_loader(str(filename))))))
+        distance = distance_calculator(str(filename))
+        relative_velocity = velocity_calculator(previous_distance, distance)
 
+        print("Obstacle ahead in: " +str(distance)+ "m")
+        print("Relative_velocity is: "+str(relative_velocity)+"km/hr")
 
+        previous_distance = distance
 
 main()
