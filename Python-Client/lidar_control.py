@@ -42,7 +42,8 @@
 # L 버튼 누르면 LiDAR Controll on/off 가능
 # 후진 버그 제거
 # Segmentation Fault 자주 나타남.
-#====================================================================================#
+#====================================Ver 201120======================================#
+# Segmentation Fault 완화
 
 
 """
@@ -383,6 +384,7 @@ class KeyboardControl(object):
         world.hud.notification("Press 'H' or '?' for help.", seconds=4.0)
 
     def parse_events(self, client, world, clock):
+        autopilot_toggle_enable = True
         if isinstance(self._control, carla.VehicleControl):
             current_lights = self._lights
         for event in pygame.event.get():
@@ -490,8 +492,10 @@ class KeyboardControl(object):
                     elif self._control.manual_gear_shift and event.key == K_PERIOD:
                         self._control.gear = self._control.gear + 1
                     elif event.key == K_p and not pygame.key.get_mods() & KMOD_CTRL:
-                        self._autopilot_enabled = not self._autopilot_enabled
-                        world.player.set_autopilot(self._autopilot_enabled)
+                        if autopilot_toggle_enable is True:
+                            self._autopilot_enabled = not self._autopilot_enabled
+                            world.player.set_autopilot(self._autopilot_enabled)
+                            autopilot_toggle_enable = False
                         world.hud.notification(
                             'Autopilot %s' % ('On' if self._autopilot_enabled else 'Off'))
                     elif event.key == K_l:
@@ -533,23 +537,25 @@ class KeyboardControl(object):
                     self._parse_walker_keys(pygame.key.get_pressed(), clock.get_time(), world)
                 world.player.apply_control(self._control)
         
+
+
         if self.lidar_controller is not False:
-            
+            if self._autopilot_enabled is True and autopilot_toggle_enable is True:
+                self._autopilot_enabled = not self._autopilot_enabled
+                world.player.set_autopilot(self._autopilot_enabled)
+                autopilot_toggle_enable = False
+
             if self.lidar_controller == 'Stop':
-                if self._autopilot_enabled is True:
-                    self._autopilot_enabled = not self._autopilot_enabled
-                    world.player.set_autopilot(self._autopilot_enabled)
+
                 self._control.gear = 1
                 self._control.throttle = 0
                 self._control.brake = 1
-                world.LiDAR_manager.lidar_controller = -1
+                world.LiDAR_manager.lidar_controller = False
                 world.player.apply_control(self._control)
                 print("Front is Blocked!")
 
             if self.lidar_controller == 'Left':
-                if self._autopilot_enabled is True:
-                    self._autopilot_enabled = not self._autopilot_enabled
-                    world.player.set_autopilot(self._autopilot_enabled)
+
                 print("Turning Left!")
                 prev_location_x = world.LiDAR_manager.location_x
                 prev_location_y = world.LiDAR_manager.location_y
@@ -566,6 +572,7 @@ class KeyboardControl(object):
                 print("Perpendicular_distance: "+str(perpendicular_distance))
 
                 if perpendicular_distance < 1.5:
+                    self._control.gear = 1
                     self._control.throttle = 0.5
                     self._control.brake = 0
                     self._control.steer = -0.1
@@ -573,6 +580,7 @@ class KeyboardControl(object):
                     print("Turning Left!")
                 else:
                     if abs(degree-prev_degree)>10:
+                        self._control.gear = 1
                         self._control.throttle = 0.5
                         self._control.brake = 0
                         self._control.steer = 0.1
@@ -581,16 +589,14 @@ class KeyboardControl(object):
                     else:
                         print("Recovering Ended!")
                         world.LiDAR_manager.lidar_controller = False
-                        self._autopilot_enabled = not self._autopilot_enabled
-                        world.player.set_autopilot(self._autopilot_enabled)
-                # self._control.throttle = 0
-                # self._control.brake = 1
-                # world.player.apply_control(self._control)
+                        if autopilot_toggle_enable is True:
+                            self._autopilot_enabled = not self._autopilot_enabled
+                            world.player.set_autopilot(self._autopilot_enabled)
+                            autopilot_toggle_enable = False
+
 
             if self.lidar_controller == 'Right':
-                if self._autopilot_enabled is True:
-                    self._autopilot_enabled = not self._autopilot_enabled
-                    world.player.set_autopilot(self._autopilot_enabled)
+
                 print("Turning Right!")
                 prev_location_x = world.LiDAR_manager.location_x
                 prev_location_y = world.LiDAR_manager.location_y
@@ -607,6 +613,7 @@ class KeyboardControl(object):
                 print("Perpendicular_distance: "+str(perpendicular_distance))
 
                 if perpendicular_distance < 1.5:
+                    self._control.gear = 1
                     self._control.throttle = 0.5
                     self._control.brake = 0
                     self._control.steer = 0.1
@@ -614,6 +621,7 @@ class KeyboardControl(object):
                     world.player.apply_control(self._control)
                 else:
                     if abs(degree-prev_degree)>10:
+                        self._control.gear = 1
                         self._control.throttle = 0.5
                         self._control.brake = 0
                         self._control.steer = -0.1
@@ -622,11 +630,11 @@ class KeyboardControl(object):
                     else:
                         world.LiDAR_manager.lidar_controller = False
                         print("Recovering Ended!")
-                        self._autopilot_enabled = not self._autopilot_enabled
-                        world.player.set_autopilot(self._autopilot_enabled)
-                # self._control.throttle = 0
-                # self._control.brake = 1
-                # world.player.apply_control(self._control)
+                        if autopilot_toggle_enable is True:
+                            self._autopilot_enabled = not self._autopilot_enabled
+                            world.player.set_autopilot(self._autopilot_enabled)
+                            autopilot_toggle_enable = False
+
 
 
 

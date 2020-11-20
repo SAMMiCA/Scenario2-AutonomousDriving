@@ -86,6 +86,18 @@ def calculate_distance_LiDAR(raw_data):
 def LiDAR_safety_check(raw_data):
     compressed_points = point_compressor(raw_data)
     #Check Left
+    left_result = check_left(compressed_points)
+    #Check Right
+    right_result = check_right(compressed_points)
+
+    if left_result is 0 and right_result is 0:
+        return 0
+    elif left_result > right_result:
+        return 1
+    else:
+        return 2
+
+def check_left(compressed_points):
     left_points_ahead = compressed_points[compressed_points[:,1]< -1.5]
     left_points_ahead = left_points_ahead[left_points_ahead[:,1]> -6.5]
     left_points_ahead = left_points_ahead[left_points_ahead[:,0]>-1.5]
@@ -94,11 +106,13 @@ def LiDAR_safety_check(raw_data):
     if left_near_points_ahead.shape[0] > 0:
         left_mean_distance = left_near_points_ahead.mean(axis=0)
         if left_mean_distance[0] > 40:
-            return 1
+            return left_mean_distance[0]
+        else:
+            return 0
     else:
-        return 1
+        return 20
 
-    #Check Right
+def check_right(compressed_points):
     right_points_ahead = compressed_points[compressed_points[:,1]< 6.5]
     right_points_ahead = right_points_ahead[right_points_ahead[:,1]> 1.5]
     right_points_ahead = right_points_ahead[right_points_ahead[:,0]>-1.5]
@@ -107,8 +121,10 @@ def LiDAR_safety_check(raw_data):
     if right_near_points_ahead.shape[0] > 0:
         right_mean_distance = right_near_points_ahead.mean(axis=0)
         if right_mean_distance[0] > 40:
-            return 2
+            return right_mean_distance[0]
+        else:
+            return 0
     else:
-        return 2
+        return 20
 
-    return 0
+
