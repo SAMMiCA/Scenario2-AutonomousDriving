@@ -126,6 +126,8 @@ python manual_control.py --res 'WIDTHxHEIGHT'
 
 BasicAgent를 사용하기 위해서는 game_loop 함수의 주석을 참고해주세요.
 
+**LiDAR 센서를 통해 Obstacle avoidance도 구현하고 있습니다.**
+
 
 ### 3.4 FPS
 client fps와 server fps가 있습니다. 
