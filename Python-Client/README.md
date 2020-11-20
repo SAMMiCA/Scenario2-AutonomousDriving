@@ -201,7 +201,7 @@ L버튼을 누르시면 lidar controller가 활성화 됩니다.
 
 https://drive.google.com/file/d/1xlqQSHlE9xqsv9OkMZ6fsIy01o5cg8KT/view?usp=sharing
 
-CARLA 시뮬레이터에서 segmentation fault가 일어나는 현상이 있습니다.
+autopilot관련 함수를 사용할 시에 CARLA 시뮬레이터에서 segmentation fault가 일어나는 현상이 있습니다.
 
 근본적인 해결 방법은 cpp 파일을 고쳐서 CARLA를 rebuild 하는 방법이겠지만, 쉽지 않을 것 같아서 해당 오류가 발생하는 내장함수를 우회하는 쪽으로 디버깅 중입니다.
 
