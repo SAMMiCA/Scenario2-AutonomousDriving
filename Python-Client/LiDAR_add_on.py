@@ -1,6 +1,7 @@
 #====================================Ver 201113======================================#
 # Initial Version
-#====================================================================================#
+#====================================Ver 201121======================================#
+# 코드 정리
 import carla
 
 from carla import ColorConverter as cc
@@ -64,11 +65,11 @@ def obstacle_detector(compressed_points):
 #====================================================================================#
 def obstacle_indicator(distance):
     if distance == 0:
-        return -1
+        return False
     elif distance < 15:
         return distance
     else:
-        return -1
+        return False
 
 #====================================================================================#
 # LiDAR_distance_calculator(raw_data)
