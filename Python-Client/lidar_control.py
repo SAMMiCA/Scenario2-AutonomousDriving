@@ -36,16 +36,26 @@
 # LiDAR와 Camera의 frame number 차이 존재 >> 해결 필요
 #====================================Ver 201114======================================#
 # LiDAR Sensor 기반 상대 속도 측정치를 바탕으로 회피 기능 추가
-# 방향 선택 제약 조건 추가할 필요 있음 / ex) 중앙선
+# 방향 선택 제약 조건 추가할 필요 있음 / ex) 중앙선 ****201124에서 해결!!****
 # 현재는 왼쪽 체크 후 오른쪽 체크, 양쪽 다 불가능 하면 멈춤 / 측면에 장애물 인식을 잘 못하는 경우 존재
 #====================================Ver 201116======================================#
 # L 버튼 누르면 LiDAR Controll on/off 가능
-# 후진 버그 제거
+# 후진 버그 제거 **아니었음**
 # Segmentation Fault 자주 나타남.
 #====================================Ver 201120======================================#
 # Segmentation Fault 완화
 #====================================Ver 201121======================================#
 # LiDAR controller 시작시 obstacle이 없어도 움직이는 오류 해결
+#====================================Ver 201124======================================#
+# 실선 차선 침범 방지 기능 추가
+# 후진 버그 진짜 해결!
+# 두 번째 장애물을 만났을 때, LiDAR controller를 껐다 켜지 않으면 제대로 동작하지 않는 버그 발견
+#====================================================================================#
+
+#########################################ToFix########################################
+# synchronizer LiDAR 포함
+# 연속한 장애물 회피
+######################################################################################
 
 
 """
@@ -288,11 +298,11 @@ class World(object):
         self.semantic_manager.transform_index = cam_pos_index
         self.semantic_manager.set_sensor(cam_index, notify=False)    
 
-        self.LiDAR_manager = LiDAR(self.player, self.hud, False, self.imu_sensor)
+        self.LiDAR_manager = LiDAR(self.player, self.hud, False, self.imu_sensor, self.map)
         self.LiDAR_manager.transform_index = cam_pos_index-1
         self.LiDAR_manager.set_sensor(cam_index, notify=False)
 
-        self.Semantic_LiDAR_manager = LiDAR(self.player, self.hud, False, self.imu_sensor)
+        self.Semantic_LiDAR_manager = LiDAR(self.player, self.hud, False, self.imu_sensor, self.map)
         self.Semantic_LiDAR_manager.transform_index = cam_pos_index-1
         self.Semantic_LiDAR_manager.set_sensor(cam_index, notify=False)
         self.Semantic_LiDAR_manager.next_sensor()
@@ -552,13 +562,11 @@ class KeyboardControl(object):
                 self._control.gear = 1
                 self._control.throttle = 0
                 self._control.brake = 1
-                world.LiDAR_manager.lidar_controller = False
                 world.player.apply_control(self._control)
                 print("Front is Blocked!")
 
             if self.lidar_controller == 'Left':
 
-                print("Turning Left!")
                 prev_location_x = world.LiDAR_manager.location_x
                 prev_location_y = world.LiDAR_manager.location_y
                 prev_degree = world.LiDAR_manager.degree
@@ -574,6 +582,7 @@ class KeyboardControl(object):
                 print("Perpendicular_distance: "+str(perpendicular_distance))
 
                 if perpendicular_distance < 1.5:
+                    self._control.reverse = False
                     self._control.gear = 1
                     self._control.throttle = 0.5
                     self._control.brake = 0
@@ -582,6 +591,7 @@ class KeyboardControl(object):
                     print("Turning Left!")
                 else:
                     if abs(degree-prev_degree)>10:
+                        self._control.reverse = False
                         self._control.gear = 1
                         self._control.throttle = 0.5
                         self._control.brake = 0
@@ -599,7 +609,6 @@ class KeyboardControl(object):
 
             if self.lidar_controller == 'Right':
 
-                print("Turning Right!")
                 prev_location_x = world.LiDAR_manager.location_x
                 prev_location_y = world.LiDAR_manager.location_y
                 prev_degree = world.LiDAR_manager.degree
@@ -615,6 +624,7 @@ class KeyboardControl(object):
                 print("Perpendicular_distance: "+str(perpendicular_distance))
 
                 if perpendicular_distance < 1.5:
+                    self._control.reverse = False
                     self._control.gear = 1
                     self._control.throttle = 0.5
                     self._control.brake = 0
@@ -623,6 +633,7 @@ class KeyboardControl(object):
                     world.player.apply_control(self._control)
                 else:
                     if abs(degree-prev_degree)>10:
+                        self._control.reverse = False
                         self._control.gear = 1
                         self._control.throttle = 0.5
                         self._control.brake = 0
@@ -1298,7 +1309,7 @@ class Semantic_Camera(object):
 # Visualizer 삭제해서 연산량 줄임
 # ==============================================================================
 class LiDAR(object):
-    def __init__(self, parent_actor, hud, gamma_correction, imu_sensor):
+    def __init__(self, parent_actor, hud, gamma_correction, imu_sensor, map):
         self.sensor = None
         self.surface = None
         self._parent = parent_actor
@@ -1316,8 +1327,8 @@ class LiDAR(object):
             ['sensor.lidar.ray_cast', None, 'Lidar (Ray-Cast)', {'range': '50'}],
             ['sensor.lidar.ray_cast_semantic', None, 'Semantic-Lidar (Ray-Cast)', {'range': '50'}]
         ]
-        world = self._parent.get_world()
-        bp_library = world.get_blueprint_library()
+        self.world = self._parent.get_world()
+        bp_library = self.world.get_blueprint_library()
         for item in self.sensors:
             bp = bp_library.find(item[0])
             self.lidar_range = 50
@@ -1335,6 +1346,7 @@ class LiDAR(object):
         self.location_x = 0
         self.location_y = 0
         self.degree = 0
+        self.map = map
 
 
     def set_sensor(self, index, notify=True, force_respawn=False):
@@ -1383,7 +1395,11 @@ class LiDAR(object):
                     if self.lidar_controller == False:
                         if self.distance < self.previous_distance - 0.15:
                             self.hud._notifications.set_text("Obstacle is getting closer!", seconds=0.5)
-                            where_to_go = LiDAR_add_on.LiDAR_safety_check(image.raw_data)
+                            waypoint = self.map.get_waypoint(self._parent.get_location(),project_to_road=True, lane_type=(carla.LaneType.Driving | carla.LaneType.Shoulder | carla.LaneType.Sidewalk))
+
+                            
+                            where_to_go = LiDAR_add_on.LiDAR_safety_check(image.raw_data, waypoint)
+
                             if where_to_go == 0:
                                 self.lidar_controller = 'Stop'
                                 self.hud.notification("Blocked by Obstacle")
@@ -1464,6 +1480,8 @@ def game_loop(args):
             world.tick(clock)
             world.render(display, semantic_display)
             pygame.display.flip()
+            
+
 
     finally:
 
