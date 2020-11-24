@@ -21,7 +21,9 @@
 
 **lidar_distance_calculator** ply 파일들이 있는 디렉토리에 넣고 사용하시면, 전방 obstacle과의 distance, 상대속도를 계산합니다.
 
-**lidar_control.py** manual_control에 lidar 기반 obstacle avoidance를 추가했습니다. 현재 segmentation fault가  사용이 어렵습니다.
+**lidar_control.py** manual_control에 lidar 기반 obstacle avoidance를 추가했습니다. 아직 버그가 많아 고치는 중입니다.
+
+**lidar_add_on.py** lidar_control에 필요한 모듈입니다.
 
 ## 2. agents
 
@@ -195,14 +197,15 @@ cd ~/carla/PythonAPI/util
 python3 config.py --fps=10
 ```
 
-L버튼을 누르시면 lidar controller가 활성화 됩니다.
+L버튼을 누르시면 lidar controller가 활성화 됩니다. lidar controller 활성화를 시키지 않으면, manual_control과 기능이 같습니다.
+
+LiDAR sensor만으로는 실선, 점선의 구분이 어려워, 차선 유지(중앙선 침범 금지 등)는 carla map의 ground truth 값을 restriction으로 사용하고 있습니다.
 
 자세한 알고리즘은 다음 링크를 참고해주세요.
 
 https://drive.google.com/file/d/1xlqQSHlE9xqsv9OkMZ6fsIy01o5cg8KT/view?usp=sharing
 
-autopilot관련 함수를 사용할 시에 CARLA 시뮬레이터에서 segmentation fault가 일어나는 현상이 있습니다.
-
-근본적인 해결 방법은 cpp 파일을 고쳐서 CARLA를 rebuild 하는 방법이겠지만, 쉽지 않을 것 같아서 해당 오류가 발생하는 내장함수를 우회하는 쪽으로 디버깅 중입니다.
+이전 버전의 segmentation fault는 완화되었지만,
+현재 pygame과 thread 관련 client가 꺼지는 버그, 연속한 장애물을 제대로 피하지 못하는 버그 등이 있습니다.
 
 장기적으로 사용에 어려움이 없어졌을 때 manual_control.py와 합치는 것을 목표로 하고 있습니다.
