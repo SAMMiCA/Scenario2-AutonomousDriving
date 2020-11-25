@@ -50,11 +50,11 @@
 # 실선 차선 침범 방지 기능 추가
 # 후진 버그 진짜 해결!
 # 두 번째 장애물을 만났을 때, LiDAR controller를 껐다 켜지 않으면 제대로 동작하지 않는 버그 발견
-#====================================================================================#
-
+#====================================Ver 201125======================================#
+# 연속한 장애물 회피 가능
+# 차선 변경이 불가능해 제동했을 경우, Obstacle이 사라졌을 때 다시 주행
 #########################################ToFix########################################
 # synchronizer LiDAR 포함
-# 연속한 장애물 회피
 ######################################################################################
 
 
@@ -588,7 +588,9 @@ class KeyboardControl(object):
                     self._control.brake = 0
                     self._control.steer = -0.1
                     world.player.apply_control(self._control)
-                    print("Turning Left!")
+                    print("move plz...T_T")
+                    print("current steer: "+str(self._control.steer))
+                    print("set autopilot?: "+str(self._autopilot_enabled))
                 else:
                     if abs(degree-prev_degree)>10:
                         self._control.reverse = False
@@ -629,7 +631,9 @@ class KeyboardControl(object):
                     self._control.throttle = 0.5
                     self._control.brake = 0
                     self._control.steer = 0.1
-                    print("Turning Right!")
+                    print("current steer: "+str(self._control.steer))
+                    print("move plz...T_T")
+                    print("set autopilot?: "+str(self._autopilot_enabled))
                     world.player.apply_control(self._control)
                 else:
                     if abs(degree-prev_degree)>10:
@@ -647,6 +651,14 @@ class KeyboardControl(object):
                             self._autopilot_enabled = not self._autopilot_enabled
                             world.player.set_autopilot(self._autopilot_enabled)
                             autopilot_toggle_enable = False
+            if self.lidar_controller == 'Go':
+                print("lidar_controller_go received")
+                if self._autopilot_enabled is False and autopilot_toggle_enable is True:
+                    self._autopilot_enabled = not self._autopilot_enabled
+                    world.player.set_autopilot(self._autopilot_enabled)
+                    autopilot_toggle_enable = False
+                    world.LiDAR_manager.lidar_controller = False
+
 
 
 
@@ -1391,6 +1403,13 @@ class LiDAR(object):
                 if self.lidar_controller == False:
                     self.distance = LiDAR_add_on.calculate_distance_LiDAR(image.raw_data)
                 
+                if self.lidar_controller == 'Stop':
+                    self.distance = LiDAR_add_on.calculate_distance_LiDAR(image.raw_data)
+                    if self.distance is False:
+                        print("distance ahead is: "+str(self.distance))
+                        self.lidar_controller = 'Go'
+                        print("lidar controller status: " +str(self.lidar_controller))
+                
                 if self.distance is not False:
                     if self.lidar_controller == False:
                         if self.distance < self.previous_distance - 0.15:
@@ -1422,7 +1441,8 @@ class LiDAR(object):
                     else:
                         pass
                 else:
-                    self.lidar_controller = False
+                    if self.lidar_controller is not 'Go':
+                        self.lidar_controller = False
         
         ################################################################################
         if self.recording:
