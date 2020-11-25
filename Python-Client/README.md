@@ -206,6 +206,6 @@ LiDAR sensor만으로는 실선, 점선의 구분이 어려워, 차선 유지(�
 https://drive.google.com/file/d/1xlqQSHlE9xqsv9OkMZ6fsIy01o5cg8KT/view?usp=sharing
 
 이전 버전의 segmentation fault는 완화되었지만,
-현재 pygame과 thread 관련 client가 꺼지는 버그, 연속한 장애물을 제대로 피하지 못하는 버그 등이 있습니다.
+현재 pygame과 thread 관련 client가 꺼지는 버그 등이 있습니다.
 
 장기적으로 사용에 어려움이 없어졌을 때 manual_control.py와 합치는 것을 목표로 하고 있습니다.
