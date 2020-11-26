@@ -1101,16 +1101,16 @@ class Camera(object):
             # semantic = np.reshape(semantic, (image.height, image.width, 3))
             #=======================================================================#
 
+            if image.frame%10 == 0:
+                cv2.imwrite('./rgb/'+str(image.frame)+'.png',array)
 
-            cv2.imwrite('./rgb/'+str(image.frame)+'.png',array)
+                # cv2.imwrite('./seg/'+str(image.frame)+'.png',semantic)
 
-            # cv2.imwrite('./seg/'+str(image.frame)+'.png',semantic)
-
-            #Steer Record
-            f = open("steer_angle_log.txt", 'a') #밖으로 꺼내서 최적화 가능하나, 성능에 큰 영향 X
-            c = self._parent.get_control()
-            f.write(str(image.frame)+'png '+str(c.steer*100)+"\n") #c.steer range: [-0.7,0.7]
-            f.close()
+                #Steer Record
+                f = open("steer_angle_log.txt", 'a') #밖으로 꺼내서 최적화 가능하나, 성능에 큰 영향 X
+                c = self._parent.get_control()
+                f.write(str(image.frame)+'png '+str(c.steer*100)+"\n") #c.steer range: [-0.7,0.7]
+                f.close()
 
 # ==============================================================================
 # -- Semantic Manager ----------------------------------------------------------
@@ -1174,12 +1174,15 @@ class Semantic_Camera(object):
         if not self:
             return
         if self.recording:
+
             image.convert(self.sensors[self.index][1])
             array = np.frombuffer(image.raw_data, dtype=np.dtype("uint8"))
             array = np.reshape(array, (image.height, image.width, 4))
             array = array[:, :, :3]
             array = array[:, :, ::-1]
-            cv2.imwrite('./seg/'+str(image.frame)+'.png',array)
+            
+            if image.frame%10 == 0:   
+                cv2.imwrite('./seg/'+str(image.frame)+'.png',array)
 
 # ==============================================================================
 # -- LiDAR Manager -------------------------------------------------------------
@@ -1253,10 +1256,12 @@ class LiDAR(object):
             LiDAR_add_on.calculate_distance_LiDAR(image.raw_data)
 
         if self.recording:
-            if self.index  % len(self.sensors) == 0:
-                image.save_to_disk('LiDAR/%d' % image.frame)
-            else:
-                image.save_to_disk('Semantic_LiDAR/%d' % image.frame)
+            if image.frame%10 == 0:
+                if self.index  % len(self.sensors) == 0:
+                    image.save_to_disk('LiDAR/%d' % image.frame)
+                    
+                else:
+                    image.save_to_disk('Semantic_LiDAR/%d' % image.frame)
 
 # ==============================================================================
 # -- game_loop() ---------------------------------------------------------------
