@@ -100,6 +100,8 @@ blueprint filter를 'walker.pedestrian.*'로 설정한다면 보행자로도 플
 
 **R**을 누르면 RGB, semantic segmentation, LiDAR point cloud, Semantic LiDAR point cloud, steering angle log가 동시에 저장됩니다.
 
+현재 10frame마다 한 장씩 저장하고 있습니다.
+
 각 센서 class의 **_parse_image** 함수를 참고하시면 됩니다.
 
 **Record가 끝나면 V 키를 꼭 눌러서 백업을 해두셔야합니다.**
