@@ -104,6 +104,8 @@ blueprint filter를 'walker.pedestrian.*'로 설정한다면 보행자로도 플
 
 **Record가 끝나면 V 키를 꼭 눌러서 백업을 해두셔야합니다.**
 
+V를 누르시면 "현재 일시"/record 디렉토리가 생성되고, 그 안에 모든 녹화 파일들이 들어갑니다.
+
 ### 3.4 화면 조절
 
 **Camera** class의 self.sensors를 보시면 exposure를 통해 밝기를 조절하실 수 있습니다. #CARLA 0.9.10 사용시, 쓸 일이 거의 없습니다.
@@ -140,7 +142,7 @@ server fps는 carla에서 make launch 하신 이후에 상단바의 *settings - 
 
 Fixed Frame Rate을 30정도로 사용하는 편이 좋아 보입니다.
 
-### 3. LiDAR
+### 3.5 LiDAR
 
 기본 LiDAR와 semantic LiDAR가 있습니다.
 
