@@ -422,16 +422,17 @@ class KeyboardControl(object):
                             os.remove(path_seg+'/'+str(files1[i]))
 
                     timenow = time.strftime('%y-%m-%d_%H:%M:%S', time.localtime(time.time()))
+                    os.mkdir("./"+str(timenow)+"_record")
                     if os.path.isdir("./rgb"):
-                        os.rename("./rgb", "./"+str(timenow)+"_rgb")
+                        os.rename("./rgb", "./"+str(timenow)+"_record/"+"rgb")
                     if os.path.isdir("./seg"):
-                        os.rename("./seg", "./"+str(timenow)+"_seg")
+                        os.rename("./seg", "./"+str(timenow)+"_record/"+"seg")
                     if os.path.isfile("steer_angle_log.txt"):
-                        os.rename("steer_angle_log.txt", str(timenow)+"_steer_angle_log.txt")
+                        os.rename("steer_angle_log.txt", "./"+str(timenow)+"_record/"+"steer_angle_log.txt")
                     if os.path.isdir("./LiDAR"):
-                        os.rename("./LiDAR", "./"+str(timenow)+"_LiDAR")
+                        os.rename("./LiDAR", "./"+str(timenow)+"_record/"+"LiDAR")
                     if os.path.isdir("./Semantic_LiDAR"):
-                        os.rename("./Semantic_LiDAR", "./"+str(timenow)+"_Semantic_LiDAR")
+                        os.rename("./Semantic_LiDAR", "./"+str(timenow)+"_record/"+"Semantic_LiDAR")
                 elif event.key > K_0 and event.key <= K_9:
                     world.camera_manager.set_sensor(event.key - 1 - K_0)
                 elif event.key == K_r:
