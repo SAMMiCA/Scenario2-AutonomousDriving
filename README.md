@@ -1,2 +1,2 @@
 # Scenario2-AutonomousDriving
-Novelty situation solution via real world and simulator
+Novelty situation solution in real world and simulator
