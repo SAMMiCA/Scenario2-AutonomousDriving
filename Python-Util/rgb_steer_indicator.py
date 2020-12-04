@@ -54,7 +54,7 @@ for i in range(len(files1)):
     dist = cv2.add(img_bg, handle_fg)
     img[vpos:rows+vpos, hpos:cols+hpos] = dist
     ##############################Line 그리기############################
-    line_length = 100
+    line_length = 200
 
     pred_dest_y = round(height-line_length*math.cos(pred_angle*math.pi/180))
     pred_dest_x = round(width//2-line_length*math.sin(pred_angle*math.pi/180))
@@ -70,9 +70,18 @@ for i in range(len(files1)):
     cv2.putText(img, label_string_pred, (0, 70), cv2.FONT_ITALIC, 1, (255, 0, 0),2)
     cv2.putText(img, "Error: %.4f(rad)" %(abs(gt_angle-pred_angle)*math.pi/180), (0, 110), cv2.FONT_ITALIC, 1, (0, 0, 255),2)
 
+    ##############################그래프 표시###############################
+    graph = cv2.imread('graph.png')
+    graph = cv2.resize(graph, (600,200))
+    graph_height = graph.shape[0]
+    graph_width = graph.shape[1]
+    gpos1 = 0
+    gpos2 = (img.shape[1]-graph_width)
 
-
-
+    img[gpos1:gpos1+graph_height, gpos2:gpos2+graph_width, :] = graph
+    
+    arrow_start = gpos2 + round((img.shape[1]-gpos2)*(i/len(files1)))
+    cv2.arrowedLine(img, (arrow_start, 0), (arrow_start,30), (0,0,0), 3)
     cv2.imwrite(pathOut_rgb+str(files1[i])+'.png', img)
 
 f.close()
